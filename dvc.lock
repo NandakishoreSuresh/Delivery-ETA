@@ -1,0 +1,76 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python -m src.data.prepare
+    deps:
+    - path: data/raw/food_delivery_orders_dataset.csv
+      hash: md5
+      md5: d2857ecc79d298c9a6088fcddc03c6ad
+      size: 11545349
+    - path: src/data/prepare.py
+      hash: md5
+      md5: d8867e0e56e2dcec6da0a75e1bd00439
+      size: 1990
+    - path: src/features/feature_config.py
+      hash: md5
+      md5: eb2797b81a2487ebf404cb63472e84da
+      size: 1360
+    - path: src/validation/validate_data.py
+      hash: md5
+      md5: fc0e6597ecf8d2c4b2f63caf0fe9d25b
+      size: 4110
+    outs:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: 55b3eb251bf7668f2fda1820f6e82436
+      size: 1756686
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 673018323c09b3077dd37875d283e89f
+      size: 8184855
+    - path: data/processed/validation.csv
+      hash: md5
+      md5: a3f630f463c33fb48406744e8a25ee34
+      size: 1758891
+  train:
+    cmd: python -m src.models.train
+    deps:
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 673018323c09b3077dd37875d283e89f
+      size: 8184855
+    - path: data/processed/validation.csv
+      hash: md5
+      md5: a3f630f463c33fb48406744e8a25ee34
+      size: 1758891
+    - path: params.yaml
+      hash: md5
+      md5: 3d357c7bb258d451c8b8f582f9a81ecb
+      size: 155
+    - path: src/features/feature_config.py
+      hash: md5
+      md5: eb2797b81a2487ebf404cb63472e84da
+      size: 1360
+    - path: src/models/train.py
+      hash: md5
+      md5: 6d7043ef8121c8dd3907ce9f6dcf0de3
+      size: 5214
+    params:
+      params.yaml:
+        model:
+          name: xgboost_eta_correction
+          n_estimators: 500
+          learning_rate: 0.05
+          max_depth: 6
+          subsample: 0.8
+          colsample_bytree: 0.8
+          random_state: 42
+    outs:
+    - path: models/eta_correction_xgb.joblib
+      hash: md5
+      md5: 517b5254fd876c1ad968f55a5e2aad79
+      size: 2257186
+    - path: models/metadata.json
+      hash: md5
+      md5: 21f617b3858a46ffd356af77b532c336
+      size: 973

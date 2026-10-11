@@ -1,0 +1,26 @@
+stages:
+  prepare:
+    cmd: python -m src.data.prepare
+    deps:
+      - data/raw/food_delivery_orders_dataset.csv
+      - src/data/prepare.py
+      - src/validation/validate_data.py
+      - src/features/feature_config.py
+    outs:
+      - data/processed/train.csv
+      - data/processed/validation.csv
+      - data/processed/test.csv
+
+  train:
+    cmd: python -m src.models.train
+    deps:
+      - data/processed/train.csv
+      - data/processed/validation.csv
+      - src/models/train.py
+      - src/features/feature_config.py
+      - params.yaml
+    outs:
+      - models/eta_correction_xgb.joblib
+      - models/metadata.json
+    params:
+      - model
