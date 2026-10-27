@@ -67,7 +67,7 @@ jobs:
       - name: Pull DVC-tracked data and model
         run: dvc pull -r dagshub
 
-            - name: Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
