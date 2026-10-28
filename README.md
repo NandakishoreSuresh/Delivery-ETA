@@ -1,154 +1,154 @@
 # Delivery ETA Correction & MLOps Platform
 
-A production-oriented machine-learning system that learns to correct an existing
-delivery ETA instead of blindly predicting delivery time from scratch.
+An end-to-end machine learning and MLOps project that improves food delivery time estimates using XGBoost regression. The platform includes data validation, reproducible data pipelines, MLflow model registration, FastAPI inference, prediction logging, PSI-based drift monitoring, Docker containerization, and automated CI/CD.
 
-## Problem
+## Project Overview
 
-The dataset contains 50,000 food-delivery orders. We use completed orders with
-a known `actual_delivery_time_minutes`.
+Existing delivery ETAs can be inaccurate because of delivery distance, traffic, weather, order characteristics, and delivery-partner factors. This project predicts the error in an existing ETA and uses the predicted correction to produce an adjusted estimate.
 
-The production baseline is:
+**Correction formula**
 
-    estimated_delivery_time_minutes
+`Corrected ETA = max(1, Existing ETA + Predicted ETA Error)`
 
-Our ML target is:
+The model predicts the difference between actual delivery time and the original estimated delivery time.
 
-    eta_error = actual_delivery_time_minutes - estimated_delivery_time_minutes
+## Model Performance
 
-The final prediction is:
+Evaluated using a chronological train/validation/test split on a food delivery dataset.
 
-    final_eta = estimated_delivery_time_minutes + predicted_eta_error
+| Metric | Existing ETA | XGBoost correction |
+|---|---:|---:|
+| Test MAE | 6.0593 min | 3.4462 min |
+| Test RMSE | 8.2291 min | 4.2827 min |
 
-## Current benchmark
+The correction model achieved a **43.13% reduction in test MAE** compared with the original ETA estimates.
 
-On the time-ordered test split created during project development:
+These results are from held-out test data. Performance on future real-world deliveries may differ.
 
-- Existing ETA: MAE about 6.06 minutes
-- Mean-error correction: MAE about 4.62 minutes
+## Tech Stack
 
-The ML model must be evaluated against these baselines.
+- **Machine Learning:** Python, XGBoost, scikit-learn, pandas, NumPy
+- **API:** FastAPI, Pydantic, Uvicorn
+- **Experiment Tracking and Model Registry:** MLflow
+- **Data and Pipeline Versioning:** DVC, DagsHub
+- **Monitoring:** JSONL prediction logging, Population Stability Index (PSI)
+- **Containerization:** Docker
+- **CI/CD:** GitHub Actions
+- **Testing:** pytest, FastAPI TestClient
 
-## Project structure
+## Architecture
 
-```text
-delivery-eta-mlops/
-├── data/
-│   ├── raw/
-│   │   └── food_delivery_orders_dataset.csv
-│   ├── processed/
-│   └── logs/
-├── notebooks/
-│   └── 01_eda_and_baseline.ipynb
-├── src/
-│   ├── validation/
-│   ├── data/
-│   ├── features/
-│   ├── models/
-│   ├── monitoring/
-│   └── api/
-├── tests/
-├── .github/workflows/ci.yml
-├── Dockerfile
-├── dvc.yaml
-├── params.yaml
-├── requirements.txt
-└── README.md
-```
+1. **Data validation:** Checks the input dataset before processing.
+2. **Data preparation:** Creates chronological training, validation, and test splits.
+3. **Model training:** Trains an XGBoost regression pipeline to predict ETA errors.
+4. **Experiment tracking:** Records parameters, metrics, and model artifacts in MLflow.
+5. **Model registry:** Registers the trained model and uses the `champion` alias for the approved version.
+6. **Model serving:** Exposes predictions through a FastAPI REST API.
+7. **Prediction logging:** Records input features and prediction results in JSONL format.
+8. **Drift monitoring:** Compares numeric feature distributions against reference training data using PSI.
+9. **Deployment automation:** Builds and publishes a Docker image through GitHub Actions.
 
-## Setup in VS Code
+## API Usage
 
-### 1. Create and activate a virtual environment
+The API exposes the following endpoints:
 
-Windows PowerShell:
+- `GET /` — API information
+- `GET /health` — Health check and model availability
+- `POST /predict` — Predict an ETA correction
 
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-Windows CMD:
-
-```cmd
-python -m venv .venv
-.venv\Scripts\activate
-```
-
-Linux/macOS:
+### Run the Published Docker Image
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+docker pull ghcr.io/nandakishoresuresh/delivery-eta-mlops:latest
+
+docker run --rm -p 8000:8000 \
+  ghcr.io/nandakishoresuresh/delivery-eta-mlops:latest
 ```
 
-### 2. Install dependencies
+Open the interactive API documentation at:
+
+`http://127.0.0.1:8000/docs`
+
+### Example Prediction Request
+
+```json
+{
+  "order_hour": 15,
+  "day_of_week": "Sunday",
+  "is_weekend": 1,
+  "city": "City_C",
+  "delivery_area": "City_C_Area_3",
+  "customer_age": 40,
+  "customer_type": "Premium",
+  "restaurant_type": "Casual Dining",
+  "restaurant_primary_category": "Healthy",
+  "restaurant_rating": 4.4,
+  "items_count": 4,
+  "subtotal": 64.82,
+  "discount_percent": 0,
+  "tax_amount": 9.07,
+  "service_fee": 2.4,
+  "delivery_fee": 0,
+  "order_total": 76.29,
+  "payment_method": "Credit Card",
+  "distance_km": 1.1,
+  "weather": "Rain",
+  "traffic_level": "Medium",
+  "delivery_partner_experience_months": 14,
+  "delivery_partner_rating": 4.4,
+  "estimated_delivery_time_minutes": 25
+}
+```
+
+Example response (actual predictions may differ by model version):
+
+```json
+{
+  "estimated_eta_minutes": 25,
+  "predicted_correction_minutes": 3.27,
+  "final_eta_minutes": 28.27,
+  "model": "models/eta_correction_xgb.joblib"
+}
+```
+
+## Data and Model Management
+
+- DVC tracks datasets and pipeline artifacts.
+- DagsHub stores the remote DVC cache.
+- MLflow records training runs and registered model versions.
+- GitHub stores source code and CI/CD workflow definitions.
+- GitHub Actions runs the automated tests and builds and publishes the Docker image to GitHub Container Registry.
+
+DVC credentials, local MLflow databases, and prediction logs should remain outside version control.
+
+## Monitoring
+
+The application logs predictions to `data/logs/predictions.jsonl` and includes a PSI-based feature drift check.
+
+The live-log monitor requires at least 30 logged requests before reporting numeric feature drift. Synthetic test requests validate the monitoring implementation but should not be treated as evidence of production drift or model performance.
+
+## Testing
+
+Run the automated test suite from the project root:
 
 ```bash
-pip install -r requirements.txt
+python -m pytest -v
 ```
 
-### 3. Validate the raw dataset
+The project currently has **9 passing automated tests**, covering feature exclusions, data validation, API responses, prediction logging, and invalid input handling.
 
-```bash
-python -m src.validation.validate_data data/raw/food_delivery_orders_dataset.csv
-```
+## CI/CD and Container Registry
 
-### 4. Create the time-based train/validation/test datasets
+GitHub Actions runs the test job and builds the Docker image. Successful pushes to the configured `master` branch also publish the image to GitHub Container Registry.
 
-```bash
-python -m src.data.prepare
-```
+- **Source code:** [Delivery-ETA on GitHub](https://github.com/NandakishoreSuresh/Delivery-ETA)
+- **Container image:** `ghcr.io/nandakishoresuresh/delivery-eta-mlops:latest`
+- **DVC remote:** [Delivery-ETA on DagsHub](https://dagshub.com/nandakishore280704/Delivery-ETA)
 
-### 5. Train the XGBoost ETA-correction model
+## Future Improvements
 
-```bash
-python -m src.models.train
-```
-
-### 6. Evaluate once on the untouched test split
-
-```bash
-python -m src.models.evaluate
-```
-
-### 7. Open MLflow
-
-```bash
-mlflow ui --port 5000
-```
-
-Then open:
-
-```text
-http://127.0.0.1:5000
-```
-
-### 8. Start the API
-
-```bash
-uvicorn src.api.main:app --reload --port 8000
-```
-
-Open:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-## MLOps roadmap
-
-This repository starts with the core reproducible pipeline:
-
-1. Data validation
-2. Time-aware data preparation
-3. Feature preprocessing
-4. Model training
-5. MLflow experiment tracking
-6. Hold-out evaluation
-7. FastAPI inference
-8. Prediction logging
-9. CI tests
-
-Later phases can add DVC remote storage, Feast, a production MLflow registry,
-Airflow orchestration, Evidently drift reports, Prometheus/Grafana,
-automatic retraining, canary deployment and rollback.
+- Deploy the API to a public cloud hosting service.
+- Add latency, error-rate, and resource-utilization monitoring.
+- Evaluate model performance using newly observed actual delivery times.
+- Add automated model promotion based on evaluation criteria.
+- Improve drift detection with larger live samples and categorical-feature monitoring.
